@@ -10,7 +10,7 @@ import Graphics.X11.ExtraTypes.XF86
 import XMonad hiding ((|||))
 import qualified XMonad.StackSet as W
 import XMonad.Actions.SpawnOn (spawnOn)
-import XMonad.Actions.Navigation2D ( navigation2D, windowGo, windowSwap)
+import XMonad.Actions.Navigation2D (navigation2D, windowGo, windowSwap)
 import XMonad.Actions.FloatSnap
 import XMonad.Actions.Submap (submap)
 import XMonad.Actions.Commands (defaultCommands, runCommand)
@@ -19,7 +19,6 @@ import XMonad.Util.NamedActions
 import XMonad.Hooks.ManageDocks (manageDocks, avoidStruts, docks)
 import XMonad.Hooks.ManageHelpers (isFullscreen, doFullFloat)
 import XMonad.Hooks.EwmhDesktops (fullscreenEventHook, ewmh)
-import XMonad.Hooks.DynamicLog
 
 import XMonad.Layout.NoBorders (smartBorders)
 import XMonad.Layout.BinarySpacePartition
@@ -29,10 +28,6 @@ import XMonad.Layout.Renamed (renamed, Rename (Replace))
 import XMonad.Layout.Spacing (smartSpacingWithEdge)
 import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
-import XMonad.Layout.WindowArranger
-import XMonad.Layout.DraggingVisualizer
-import XMonad.Layout.WindowSwitcherDecoration
-import XMonad.Layout.Decoration
 
 import XMonad.Prompt.XMonad (xmonadPrompt)
 
@@ -51,11 +46,10 @@ dmenu = DM.menuArgs "rofi" ["-dmenu", "-i"]
 -----------------------------------------------------------------------------
 -- Customized programs
 --
--- myScreensaver = "/usr/bin/xautolock -locknow"
 myScreensaver :: [Char]
-myScreensaver = "light-locker-command -l"
+myScreensaver = ""
 toggleScreensaver :: [Char]
-toggleScreensaver = "/usr/bin/xautolock -toggle"
+toggleScreensaver = ""
 myTerminal :: [Char]
 myTerminal = "termite -e /usr/bin/tmux"
 
@@ -124,15 +118,12 @@ jumpLayout = do
   where layoutNames = ["bsp", "tall", "mirror-tall", "full"]
 
 data MyToggles
-    = GAPPED | DECORATED deriving (Read, Show, Eq, Typeable)
+    = GAPPED deriving (Read, Show, Eq, Typeable)
 
 instance Transformer MyToggles Window where
     transform GAPPED x k = k (smartSpacingWithEdge 10 x) (const x)
-    transform DECORATED x k = k (mkDecorated x) (const x)
-      where 
-        mkDecorated l = renamed [Replace "decorated"] $ windowSwitcherDecoration shrinkText def (draggingVisualizer $ l)
 
-myLayout = mkToggle (NOBORDERS ?? FULL ?? EOT) . mkToggle1 GAPPED . mkToggle1 DECORATED $ layouts
+myLayout = mkToggle (NOBORDERS ?? FULL ?? EOT) . mkToggle1 GAPPED $ layouts
     where
         layouts = bsp ||| tall ||| mirrorTall ||| full
         bsp  = renamed [Replace "bsp"] emptyBSP
@@ -157,7 +148,6 @@ myKeys c =
   ++ mkSM "Toggles" "M-S-t" myToggles
   ++ mkSM "BSP" "M-b" myBSP
   ++ mkSM "Fn" "" myMediaKeys
-  ++ mkSM "WindowArranger" "M-a" myWindowArranger
   ++ mkSM "FloatSnap" "M-f" myFloatSnap
   where
     mkSM t [] l = (subtitle t:) $ mkNamedKeymap c $ l
@@ -175,7 +165,6 @@ myKeys c =
       ]
     myToggles =
       [ ("g", addName "Toggle gaps"        $ sendMessage $ Toggle GAPPED)
-      , ("d", addName "Toggle decorations" $ sendMessage $ Toggle DECORATED)
       , ("z", addName "Toggle full"        $ sendMessage $ Toggle FULL)
       ]
     myBSP =
@@ -203,18 +192,6 @@ myKeys c =
       , ("<XF86MonBrightnessUp>",   spawn' "xbacklight -inc 10")
       , ("<XF86MonBrightnessDown>", spawn' "xbacklight -dec 10")
       ]
-    myWindowArranger =
-      [ ("a",   addName "Arrange"    $ sendMessage  Arrange)
-      , ("C-a", addName "DeArrange"  $ sendMessage  DeArrange)
-      , ("l",   addName "Right"      $ sendMessage (MoveRight     10))
-      , ("h",   addName "Left"       $ sendMessage (MoveLeft      10))
-      , ("j",   addName "Down"       $ sendMessage (MoveDown      10))
-      , ("k",   addName "Up"         $ sendMessage (MoveUp        10))
-      , ("S-l", addName "Increase H" $ sendMessage (IncreaseLeft  10) >> sendMessage (IncreaseRight 10))
-      , ("S-h", addName "Decrease H" $ sendMessage (DecreaseLeft  10) >> sendMessage (DecreaseRight 10))
-      , ("S-k", addName "Increase V" $ sendMessage (IncreaseDown  10) >> sendMessage (IncreaseUp 10))
-      , ("S-j", addName "Decrease V" $ sendMessage (DecreaseDown  10) >> sendMessage (DecreaseUp 10))
-      ]
     myFloatSnap = 
        [ ("h",   addName "Left"         $ withFocused $ snapMove L Nothing)
        , ("l",   addName "Right"        $ withFocused $ snapMove R Nothing)
@@ -230,9 +207,6 @@ myKeys c =
 startup :: X()
 startup = do
     spawnOn (getWorkspace "term") myTerminal
-    spawnOn (getWorkspace "web") "vivaldi-stable"
-    spawnOn (getWorkspace "media") "gpmdp"
-    spawnOnce "/home/abe/bin/xmonad-autorun"
 
 toggleFloatingWindow :: String -> X()
 toggleFloatingWindow name = do
@@ -246,7 +220,7 @@ main = do
   xmonad
     $ ewmh
     $ docks
-    $ navigation2D def (xK_w, xK_a, xK_s, xK_d) [(mod1Mask, windowGo), (mod1Mask .|. shiftMask, windowSwap)] False
+    -- $ navigation2D def (xK_w, xK_a, xK_s, xK_d) [(mod1Mask, windowGo), (mod1Mask .|. shiftMask, windowSwap)] False
     $ addDescrKeys ((modm .|. shiftMask, xK_slash), xMessage) myKeys
     $ def
       { terminal           = myTerminal
@@ -256,8 +230,8 @@ main = do
       , focusedBorderColor = myFocusedBorderColor
       , borderWidth        = myBorderWidth
       , manageHook         = myManageHook
-      , layoutHook         = avoidStruts $ smartBorders $ windowArrange myLayout
-      -- , startupHook        = startup
+      , layoutHook         = avoidStruts $ smartBorders $ myLayout
+      , startupHook        = startup
       , handleEventHook    = fullscreenEventHook <+> handleEventHook def
       }
       `removeKeys`
