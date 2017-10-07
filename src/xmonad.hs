@@ -123,14 +123,12 @@ jumpLayout = do
   sendMessage $ JumpToLayout r
   where layoutNames = ["bsp", "tall", "mirror-tall", "full"]
 
-unmodifyLayout (ModifiedLayout _ x') = x'
-
 data MyToggles
     = GAPPED | DECORATED deriving (Read, Show, Eq, Typeable)
 
 instance Transformer MyToggles Window where
-  transform GAPPED x k = k (smartSpacingWithEdge 10 x) unmodifyLayout
-  transform DECORATED x k = k (mkDecorated x) unmodifyLayout
+    transform GAPPED x k = k (smartSpacingWithEdge 10 x) (const x)
+    transform DECORATED x k = k (mkDecorated x) (const x)
       where 
         mkDecorated l = renamed [Replace "decorated"] $ windowSwitcherDecoration shrinkText def (draggingVisualizer $ l)
 
@@ -259,7 +257,6 @@ main = do
       , borderWidth        = myBorderWidth
       , manageHook         = myManageHook
       , layoutHook         = avoidStruts $ smartBorders $ windowArrange myLayout
-      , logHook            = dynamicLogWithPP $ def { ppOutput = hPutStrLn h }
       -- , startupHook        = startup
       , handleEventHook    = fullscreenEventHook <+> handleEventHook def
       }
@@ -271,4 +268,4 @@ main = do
         ((modm,               button1), (\w -> focus w >> mouseMoveWindow w >> afterDrag (snapMagicMove (Just 50) (Just 50) w)))
       , ((modm .|. shiftMask, button1), (\w -> focus w >> mouseMoveWindow w >> afterDrag (snapMagicResize [L,R,U,D] (Just 50) (Just 50) w)))
       , ((modm,               button3), (\w -> focus w >> mouseResizeWindow w >> afterDrag (snapMagicResize [R,D] (Just 50) (Just 50) w)))
-]
+      ]
