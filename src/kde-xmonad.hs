@@ -2,14 +2,14 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-import Control.Monad (filterM, when, join)
-import Data.Maybe (fromMaybe, maybeToList)
+import Control.Monad (filterM)
+import Data.Maybe (fromMaybe)
 import Data.Monoid (Endo(..))
 import Graphics.X11.ExtraTypes.XF86
 
 import XMonad hiding ((|||))
 
-import XMonad.Layout.NoBorders (smartBorders, noBorders, hasBorder)
+import XMonad.Layout.NoBorders (smartBorders, noBorders)
 import XMonad.Layout.BinarySpacePartition
 import XMonad.Layout.LayoutCombinators ((|||), JumpToLayout(..))
 import XMonad.Layout.LayoutModifier (ModifiedLayout(..))
@@ -19,8 +19,8 @@ import XMonad.Layout.MultiToggle
 import XMonad.Layout.MultiToggle.Instances
 
 import XMonad.Hooks.EwmhDesktops (fullscreenEventHook, ewmh)
-import XMonad.Hooks.ManageDocks (docks, manageDocks, avoidStruts, ToggleStruts(..), Direction2D(..))
-import XMonad.Hooks.ManageHelpers (isFullscreen, doFullFloat, isInProperty, isKDETrayWindow)
+import XMonad.Hooks.ManageDocks (manageDocks, avoidStruts, docks)
+import XMonad.Hooks.ManageHelpers (isFullscreen, doFullFloat, isInProperty)
 import qualified XMonad.StackSet as W
 
 import XMonad.Actions.SpawnOn (spawnOn)
@@ -31,23 +31,25 @@ import XMonad.Util.Run (hPutStrLn, spawnPipe)
 import XMonad.Util.NamedActions
 import qualified XMonad.Util.Dmenu as DM
 
--- Functions {{{
+-- {{{ Functions
 --
 dmenu = DM.menuArgs "rofi" ["-dmenu", "-i"]
 -- }}}
 
--- Programs {{{
+-- {{{ Programs
 --
-myScreensaver = "light-locker-command -l"
+myScreensaver :: [Char]
+myScreensaver = ""
+toggleScreensaver :: [Char]
 toggleScreensaver = ""
-myTerminal = "konsole -e /usr/bin/tmux"
--- }}}
+myTerminal = "konsole"
+--- }}}
 
--- Workspaces {{{
+-- {{{ Workspaces
 --
 workspaceMap :: [(String,String)]
--- workspaceMap = [("term", "\xf120"), ("web", "\xf269"), ("editor", "\xf121"), ("games", "\xf1b6"), ("media", "\xf04b")]
-workspaceMap = [("term", "term"), ("web", "web"), ("editor", "editor"), ("games", "games"), ("media", "media")]
+workspaceMap = [("term", "\xf120"), ("web", "\xf269"), ("editor", "\xf121"), ("games", "\xf1b6"), ("media", "\xf04b")]
+-- workspaceMap = [("term", "term"), ("web", "web"), ("editor", "editor"), ("games", "games"), ("media", "media")]
 
 getWorkspace :: String -> String
 getWorkspace = fromMaybe "9" . flip lookup workspaceMap
@@ -56,8 +58,9 @@ myWorkspaces :: [String]
 myWorkspaces = foldr (\x acc -> snd x:acc) [] workspaceMap ++ map show [(length workspaceMap + 1)..9]
 -- }}}
 
--- Window Rules {{{
--- use xprop | grep WM_CLASS to find the name of a program. className is the second elem of WM_CLASS(STRING)
+-- {{{ Window Rules
+-- use xprop | grep WM_CLASS to find the name of a program
+--
 myManageHook :: Query (Endo WindowSet)
 myManageHook = (composeAll . concat $
     [ [ className =? c --> doShift (getWorkspace "term")   | c <- myTerms   ]
@@ -66,44 +69,40 @@ myManageHook = (composeAll . concat $
     , [ className =? c --> doShift (getWorkspace "games")  | c <- myGames   ]
     , [ className =? c --> doShift (getWorkspace "media")  | c <- myMedia   ]
     , [ className =? c --> doFloat                         | c <- myFloat   ]
-    , [ className =? c --> doIgnore <+> hasBorder False >> doFloat | c <- myIgnoreF ]
+    , [ className =? "krunner" --> doIgnore ]
     , [ isFullscreen   --> myDoFullFloat ]
-    , [ wantsFloat <||> isNotification <||> isOSD --> doFloat ]
+    , [ wantsFloat <||> isNotification --> doFloat ]
     ]) <+> manageDocks
   where myDoFullFloat = doF W.focusDown <+> doFullFloat
         wantsFloat = isInProperty "_NET_WM_STATE" "_NET_WM_STATE_STAYS_ON_TOP" <||> isInProperty "_NET_WM_STATE" "_NET_WM_STATE_ABOVE" <||> isInProperty "_NET_WM_STATE" "_NET_WM_STATE_BELOW"
         isNotification = isInProperty "_NET_WM_WINDOW_TYPE" "_NET_WM_WINDOW_TYPE_NOTIFICATION"
-        isOSD = isInProperty "_NET_WM_WINDOW_TYPE" "_KDE_NET_WM_WINDOW_TYPE_ON_SCREEN_DISPLAY"
         myTerms = ["Termite", "xterm", "konsole"]
-        myWebs = [ "Google-chrome"
-                 , "Vivaldi-stable"
-                 , "Firefox"
-                 , "Firefox Developer Edition"
-                 , "Chromium"
-                 , "firefoxdeveloperedition"
-                 ]
-        myEditors = ["jetbrains-idea", "Code", "Emacs", "GVim"]
+        myWebs = ["Google-chrome", "Vivaldi-stable", "Firefox", "Firefox Developer Edition", "Chromium"]
+        myEditors = ["jetbrains-idea", "jetbrains-pycharm", "Code", "Emacs", "GVim"]
         myGames = ["MultiMC5", "Steam"]
-        myMedia = ["Spotify", "spotify"]
-        myFloat = ["stalonetray"]
-        myIgnoreF = ["krunner", "plasmashell"]
+        myMedia = ["Spotify", "Google Play Music Desktop Player"]
+        myFloat = []
 -- }}}
 
--- Colors and Borders {{{
+-- {{{ Colors and Borders
 --
+myNormalBorderColor :: String
 myNormalBorderColor = "#555555"
-myFocusedBorderColor = "#1abc9c"
+
+myFocusedBorderColor :: String
+myFocusedBorderColor = "#dab3af"
+
 myBorderWidth :: Dimension
 myBorderWidth = 2
 -- }}}
 
--- Layouts {{{
+-- {{{ Layouts
 --
 jumpLayout :: X ()
 jumpLayout = do
-  r <- dmenu layoutNames
+  r <- dmenu $ layoutNames
   sendMessage $ JumpToLayout r
-  where layoutNames = ["bsp", "tall", "mirror-tall", "full", "focus"]
+  where layoutNames = ["bsp", "tall", "mirror-tall", "full"]
 
 data MyToggles
     = GAPPED deriving (Read, Show, Eq, Typeable)
@@ -113,26 +112,24 @@ instance Transformer MyToggles Window where
 
 myLayout = mkToggle (NOBORDERS ?? FULL ?? EOT) . mkToggle1 GAPPED $ layouts
     where
-      layouts = avoidStruts (bsp ||| tall ||| mirrorTall ||| full) ||| focus
-      bsp  = renamed [Replace "bsp"] emptyBSP
-      tall = renamed [Replace "tall"] $ Tall nmaster delta ratio
-      mirrorTall = renamed [Replace "mirror-tall"] $ Mirror tall
-      full = renamed [Replace "full"] (noBorders $ Full)
-      focus = renamed [Replace "focus"] (noBorders $ Full)
+        layouts = bsp ||| tall ||| mirrorTall ||| full
+        bsp  = renamed [Replace "bsp"] emptyBSP
+        tall = renamed [Replace "tall"] $ Tall nmaster delta ratio
+        mirrorTall = renamed [Replace "mirror-tall"] $ Mirror tall
+        full = renamed [Replace "full"] (noBorders $ Full)
 
-      -- default tiling algorithm partitions the screen into 2 panes
-      -- default number of windows in the master pane
-      nmaster = 1
+        -- default tiling algorithm partitions the screen into 2 panes
+        -- default number of windows in the master pane
+        nmaster = 1
 
-      -- default proportion of the screen occupied by master pane
-      ratio = 2/3
+        -- default proportion of the screen occupied by master pane
+        ratio = 2/3
 
-      -- percent of screen to increment by when resizing panes
-      delta = 1/100
+        -- percent of screen to increment by when resizing panes
+        delta = 1/100
 -- }}}
 
 -- Key Bindings {{{
---
 modm :: KeyMask
 modm = mod4Mask -- changes mod key to super
 
@@ -149,16 +146,15 @@ myKeys c =
     mkSM t s l  = (subtitle t:) $ mkNamedKeymap c $ fmap (\(k, a) -> (s++" "++k, a)) l
     myCustomKeys =
       [ ("M-S-<Return>", addName "Launch terminal" $ spawn $ XMonad.terminal c)
-      , ("M-p",     addName "Launch Application" $ spawn "rofi -show drun")
-      , ("M-S-p",   addName "Execute program"    $ spawn "rofi -show run")
+      , ("M-p",     addName "Launch rofi"        $ spawn "rofi -show run")
+      , ("M-S-p",   addName "Launch programs"    $ spawn "j4-dmenu-desktop --dmenu='rofi -dmenu'")
       , ("M-<Tab>", addName "Window switcher"    $ spawn "rofi -show window")
+      , ("M-S-q",   addName "Leave"              $ spawn "dbus-send --print-reply --dest=org.kde.ksmserver /KSMServer org.kde.KSMServerInterface.logout int32:1 int32:0 int32:1")
       , ("M-i",     addName "Select layout"      $ jumpLayout)
-      , ("M-o",     addName "Switch themes"      $ spawn "~/bin/themer")
-      , ("M-r",     addName "Rofi Modi Picker"   $ spawn "~/.local/bin/rofi-run")
-      , ("M-S-q",   addName "Logout"             $ spawn "qdbus org.kde.ksmserver /KSMServer logout 1 3 3")
-      -- , ("M-C-l",   addName "Lock screen"        $ spawn myScreensaver)
-      -- , ("M-C-c",   addName "Toggle screensaver" $ spawn toggleScreensaver)
-      , ("<Print>", spawn' "scrot -e 'mv $f ~/Pictures/Screenshots'")
+    --  , ("M-o",     addName "Switch themes"      $ spawn "~/bin/themer")
+    --  , ("M-C-l",   addName "Lock screen"        $ spawn myScreensaver)
+    --  , ("M-C-c",   addName "Toggle screensaver" $ spawn toggleScreensaver)
+    --  , ("<Print>", spawn' "scrot -e 'mv $f ~/Pictures/Screenshots'")
       ]
     myToggles =
       [ ("g", addName "Toggle gaps"        $ sendMessage $ Toggle GAPPED)
@@ -179,60 +175,24 @@ myKeys c =
       , ("n",         addName "Select Node"  $ sendMessage $ SelectNode)
       , ("m",         addName "Move Node"    $ sendMessage $ MoveNode)
       ]
-    -- myMediaKeys =
-    --   [
-    --     ("<XF86AudioLowerVolume>",   spawn' "ponymix -N decrease 2")
-    --   , ("<XF86AudioRaiseVolume>",  spawn' "ponymix -N increase 2")
-    --   , ("<XF86AudioMute>",         spawn' "ponymix -N toggle")
-    --   , ("<XF86AudioPlay>",         spawn' "playerctl play-pause")
-    --   , ("<XF86AudioNext>",         spawn' "playerctl next")
-    --   , ("<XF86AudioPrev>",         spawn' "playerctl previous")
-    --   , ("<XF86MonBrightnessUp>",   spawn' "xbacklight -inc 10")
-    --   , ("<XF86MonBrightnessDown>", spawn' "xbacklight -dec 10")
-    --   ]
+   -- myMediaKeys =
+   --   [ ("<XF86AudioLowerVolume>",   spawn' "ponymix -N decrease 2")
+   --   , ("<XF86AudioRaiseVolume>",  spawn' "ponymix -N increase 2")
+   --   , ("<XF86AudioMute>",         spawn' "ponymix -N toggle")
+   --   , ("<XF86AudioPlay>",         spawn' "playerctl play-pause")
+   --   , ("<XF86AudioNext>",         spawn' "playerctl next")
+   --   , ("<XF86AudioPrev>",         spawn' "playerctl previous")
+   --   , ("<XF86MonBrightnessUp>",   spawn' "xbacklight -inc 10")
+   --   , ("<XF86MonBrightnessDown>", spawn' "xbacklight -dec 10")
+   --   ]
 -- }}}
 
--- Startup {{{
---
--- Fix for firefox not going fullscreen
--- Credit https://gist.github.com/sgf-dma/a609f855bbacf1a0292e660c32a5a04e
--- https://github.com/cstrahan/dotfiles/blob/b28910dca345f5030969828fae1fdbb9982e0042/.xmonad/xmonad.hs#L64-L82
-
--- the sxiv app (and maybe others) believes that fullscreen is not supported,
--- so this fixes that.
--- see: https://mail.haskell.org/pipermail/xmonad/2017-March/015224.html
--- and: https://github.com/xmonad/xmonad-contrib/pull/109
-addNETSupported :: Atom -> X ()
-addNETSupported x = withDisplay $ \dpy -> do
-  r               <- asks theRoot
-  a_NET_SUPPORTED <- getAtom "_NET_SUPPORTED"
-  a               <- getAtom "ATOM"
-  liftIO $ do
-    sup <- (join . maybeToList) <$> getWindowProperty32 dpy a_NET_SUPPORTED r
-    when (fromIntegral x `notElem` sup) $
-      changeProperty32 dpy r a_NET_SUPPORTED a propModeAppend [fromIntegral x]
-
-addEWMHFullscreen :: X ()
-addEWMHFullscreen = do
-  wms <- getAtom "_NET_WM_STATE"
-  wfs <- getAtom "_NET_WM_STATE_FULLSCREEN"
-  mapM_ addNETSupported [wms, wfs]
-
-startup :: X()
-startup = do
-  addEWMHFullscreen
-  -- autostart using XDG specification
-  spawnOnce "/bin/sh -c 'dex -a >/dev/null'"
-  spawnOn (getWorkspace "term") myTerminal
-
--- }}}
-
-main :: IO()
 main = do
   xmonad
-    $ addDescrKeys ((modm .|. shiftMask, xK_slash), xMessage) myKeys
-    $ docks
-    $ ewmh def
+   $ ewmh
+   $ docks
+   $ addDescrKeys ((modm .|. shiftMask, xK_slash), xMessage) myKeys
+   $ def
       { terminal           = myTerminal
       , modMask            = modm
       , workspaces         = myWorkspaces
@@ -240,8 +200,7 @@ main = do
       , focusedBorderColor = myFocusedBorderColor
       , borderWidth        = myBorderWidth
       , manageHook         = myManageHook
-      , layoutHook         = smartBorders $ myLayout
-      , startupHook        = startup
+      , layoutHook         = avoidStruts $ smartBorders $ myLayout
       , handleEventHook    = fullscreenEventHook <+> handleEventHook def
       }
       `removeKeys`
