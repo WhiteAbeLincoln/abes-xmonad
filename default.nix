@@ -1,2 +1,18 @@
-{ nixpkgs ? import <nixpkgs> {}, compiler ? "ghc8102" }:
-nixpkgs.pkgs.haskell.packages.${compiler}.callPackage ./xmonad.nix { }
+{ pkgs ? import <nixpkgs> { }, compiler ? "default", shell ? false }:
+
+let
+  haskellPackages = if compiler == "default"
+                      then pkgs.haskellPackages
+                      else pkgs.haskell.packages.${compiler};
+in
+  haskellPackages.developPackage {
+    root = ./.;
+    modifier = drv:
+      pkgs.haskell.lib.overrideCabal drv (attrs: {
+        buildTools = (attrs.buildTools or [  ]) ++ [
+          haskellPackages.cabal-install
+          haskellPackages.haskell-language-server
+        ];
+      });
+    returnShellEnv = shell;
+  }
