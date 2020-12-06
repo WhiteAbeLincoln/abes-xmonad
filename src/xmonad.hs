@@ -1,8 +1,10 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-import Control.Monad (filterM, when, join)
+{-# LANGUAGE OverloadedStrings #-}
+import Control.Monad (liftM, filterM, when, join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Monoid (Endo(..))
 import Graphics.X11.ExtraTypes.XF86
@@ -14,8 +16,8 @@ import XMonad.Layout.BinarySpacePartition
 import XMonad.Layout.LayoutCombinators ((|||), JumpToLayout(..))
 import XMonad.Layout.LayoutModifier (ModifiedLayout(..))
 import XMonad.Layout.Renamed (renamed, Rename (Replace))
-import XMonad.Layout.Spacing (smartSpacingWithEdge)
 import XMonad.Layout.MultiToggle
+    ( (??), mkToggle, EOT(EOT), Toggle(Toggle) )
 import XMonad.Layout.MultiToggle.Instances
 
 import XMonad.Hooks.EwmhDesktops (fullscreenEventHook, ewmh)
@@ -30,29 +32,30 @@ import XMonad.Util.SpawnOnce (spawnOnce)
 import XMonad.Util.Run (hPutStrLn, spawnPipe)
 import XMonad.Util.NamedActions
 import qualified XMonad.Util.Dmenu as DM
+import Config (decodeConfig, CConfig)
+import qualified Config as C
+import EnvConfig (getConfigText)
 
--- Functions {{{
+-- Config {{{
 --
-dmenu = DM.menuArgs "rofi" ["-dmenu", "-i"]
--- }}}
+configStr = $( getConfigText "CONFIG_FILE" "CONFIG_SRC" )
+myConfig = decodeConfig configStr
 
--- Programs {{{
---
-myScreensaver = "light-locker-command -l"
-toggleScreensaver = ""
-myTerminal = "konsole -e /usr/bin/tmux"
+dmenu = DM.menuArgs (C.dmenu myConfig) (C.dmenuArgs myConfig)
+myTerminal = C.value . C.terminal $ myConfig
+myNormalBorderColor = C.normalBorderColor $ myConfig
+myFocusedBorderColor = C.focusedBorderColor $ myConfig
+myBorderWidth :: Dimension
+myBorderWidth = fromIntegral $ C.borderWidth $ myConfig
 -- }}}
 
 -- Workspaces {{{
 --
-workspaceMap :: [(String,String)]
 -- workspaceMap = [("term", "\xf120"), ("web", "\xf269"), ("editor", "\xf121"), ("games", "\xf1b6"), ("media", "\xf04b")]
 workspaceMap = [("term", "term"), ("web", "web"), ("editor", "editor"), ("games", "games"), ("media", "media")]
 
-getWorkspace :: String -> String
 getWorkspace = fromMaybe "9" . flip lookup workspaceMap
 
-myWorkspaces :: [String]
 myWorkspaces = foldr (\x acc -> snd x:acc) [] workspaceMap ++ map show [(length workspaceMap + 1)..9]
 -- }}}
 
@@ -89,14 +92,6 @@ myManageHook = (composeAll . concat $
         myIgnoreF = ["krunner", "plasmashell"]
 -- }}}
 
--- Colors and Borders {{{
---
-myNormalBorderColor = "#555555"
-myFocusedBorderColor = "#1abc9c"
-myBorderWidth :: Dimension
-myBorderWidth = 2
--- }}}
-
 -- Layouts {{{
 --
 jumpLayout :: X ()
@@ -105,13 +100,13 @@ jumpLayout = do
   sendMessage $ JumpToLayout r
   where layoutNames = ["bsp", "tall", "mirror-tall", "full", "focus"]
 
-data MyToggles
-    = GAPPED deriving (Read, Show, Eq, Typeable)
+-- data MyToggles
+--     = GAPPED deriving (Read, Show, Eq, Typeable)
 
-instance Transformer MyToggles Window where
-    transform GAPPED x k = k (smartSpacingWithEdge 10 x) (const x)
+-- instance Transformer MyToggles Window where
+--     transform GAPPED x k = k (smartSpacingWithEdge 10 x) (const x)
 
-myLayout = mkToggle (NOBORDERS ?? FULL ?? EOT) . mkToggle1 GAPPED $ layouts
+myLayout = mkToggle (NOBORDERS ?? FULL ?? EOT) $ layouts
     where
       layouts = avoidStruts (bsp ||| tall ||| mirrorTall ||| full) ||| focus
       bsp  = renamed [Replace "bsp"] emptyBSP
@@ -140,29 +135,25 @@ altMask :: KeyMask
 altMask = mod1Mask
 
 myKeys c =
-  mkSM "Custom" "" myCustomKeys
+  mkSM "Custom" "" (myCustomKeys ++ myConfigKeys ++ [myTerminalBinding])
   ++ mkSM "Toggles" "M-S-t" myToggles
   ++ mkSM "BSP" "M-b" myBSP
   -- ++ mkSM "Fn" "" myMediaKeys
   where
     mkSM t [] l = (subtitle t:) $ mkNamedKeymap c $ l
     mkSM t s l  = (subtitle t:) $ mkNamedKeymap c $ fmap (\(k, a) -> (s++" "++k, a)) l
+    fromKeybinding k = (C.key k, addName (C.name k) $ spawn (C.value k))
+
+    myConfigKeys = map fromKeybinding $ C.keybindings $ myConfig
+    myTerminalBinding = let
+      term = C.terminal myConfig
+      in
+        (C.key term, addName (C.name term) $ spawn $ XMonad.terminal c)
     myCustomKeys =
-      [ ("M-S-<Return>", addName "Launch terminal" $ spawn $ XMonad.terminal c)
-      , ("M-p",     addName "Launch Application" $ spawn "rofi -show drun")
-      , ("M-S-p",   addName "Execute program"    $ spawn "rofi -show run")
-      , ("M-<Tab>", addName "Window switcher"    $ spawn "rofi -show window")
-      , ("M-i",     addName "Select layout"      $ jumpLayout)
-      , ("M-o",     addName "Switch themes"      $ spawn "~/bin/themer")
-      , ("M-r",     addName "Rofi Modi Picker"   $ spawn "~/.local/bin/rofi-run")
-      , ("M-S-q",   addName "Logout"             $ spawn "qdbus org.kde.ksmserver /KSMServer logout 1 3 3")
-      -- , ("M-C-l",   addName "Lock screen"        $ spawn myScreensaver)
-      -- , ("M-C-c",   addName "Toggle screensaver" $ spawn toggleScreensaver)
-      , ("<Print>", spawn' "scrot -e 'mv $f ~/Pictures/Screenshots'")
-      ]
+      [ ("M-i",     addName "Select layout"      $ jumpLayout) ]
     myToggles =
-      [ ("g", addName "Toggle gaps"        $ sendMessage $ Toggle GAPPED)
-      , ("z", addName "Toggle full"        $ sendMessage $ Toggle FULL)
+      [ -- ("g", addName "Toggle gaps"        $ sendMessage $ Toggle GAPPED)
+        ("z", addName "Toggle full"        $ sendMessage $ Toggle FULL)
       ]
     myBSP =
       [ ("l",     addName "Expand Right"     $ sendMessage $ ExpandTowards R)
@@ -222,7 +213,7 @@ startup :: X()
 startup = do
   addEWMHFullscreen
   -- autostart using XDG specification
-  spawnOnce "/bin/sh -c 'dex -a >/dev/null'"
+  -- spawnOnce "/bin/sh -c 'dex -a >/dev/null'"
   spawnOn (getWorkspace "term") myTerminal
 
 -- }}}

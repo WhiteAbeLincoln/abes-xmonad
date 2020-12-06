@@ -1,5 +1,6 @@
 .stack-work*
 dist/
+dist-newstyle/
 abes-xmonad
 xmonad-x86_64-linux
 xmonad.errors
@@ -9,4 +10,6 @@ xmonad.state
 xmonad.history
 .direnv
 .envrc
+result
 result/
+src/config.json

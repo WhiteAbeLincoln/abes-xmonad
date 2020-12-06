@@ -1,0 +1,18 @@
+{
+  "dmenu": "rofi",
+  "dmenuArgs": ["-dmenu", "-i"],
+  "normalBorderColor": "#555555",
+  "focusedBorderColor": "#FF0000",
+  "borderWidth": 2,
+  "terminal": {
+    "key": "M-S-<Return>",
+    "name": "Launch terminal",
+    "value": "termite -e /home/abe/.nix-profile/bin/tmux"
+  },
+  "keybindings": [
+    { "key": "M-p", "name": "Launch application", "value": "rofi -show drun" },
+    { "key": "M-S-p", "name": "Execute program", "value": "rofi -show run" },
+    { "key": "M-<Tab>", "name": "Window switcher", "value": "rofi -show window" },
+    { "key": "M-S-q", "name": "Logout", "value": "qdbus org.kde.ksmserver /KSMServer logout 1 3 3" }
+  ]
+}
