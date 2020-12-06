@@ -7,7 +7,7 @@
 import Control.Monad (liftM, filterM, when, join)
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.Monoid (Endo(..))
-import Graphics.X11.ExtraTypes.XF86
+import Graphics.X11.ExtraTypes.XF86 ()
 
 import XMonad hiding ((|||))
 
@@ -19,6 +19,7 @@ import XMonad.Layout.Renamed (renamed, Rename (Replace))
 import XMonad.Layout.MultiToggle
     ( (??), mkToggle, EOT(EOT), Toggle(Toggle) )
 import XMonad.Layout.MultiToggle.Instances
+    ( StdTransformers(FULL, NOBORDERS) )
 
 import XMonad.Hooks.EwmhDesktops (fullscreenEventHook, ewmh)
 import XMonad.Hooks.ManageDocks (docks, manageDocks, avoidStruts, ToggleStruts(..), Direction2D(..))
@@ -31,6 +32,7 @@ import XMonad.Util.EZConfig (removeKeys, additionalMouseBindings, additionalKeys
 import XMonad.Util.SpawnOnce (spawnOnce)
 import XMonad.Util.Run (hPutStrLn, spawnPipe)
 import XMonad.Util.NamedActions
+    ( addDescrKeys, addName, subtitle, xMessage )
 import qualified XMonad.Util.Dmenu as DM
 import Config (decodeConfig, CConfig)
 import qualified Config as C

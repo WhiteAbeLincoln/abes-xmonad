@@ -13,3 +13,4 @@ xmonad.history
 result
 result/
 src/config.json
+cabal.project.local

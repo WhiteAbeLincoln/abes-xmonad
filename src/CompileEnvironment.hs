@@ -15,6 +15,7 @@ import Control.Monad
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Data.Maybe (fromMaybe)
+import Control.Exception
 
 
 -- Compile Time Functions {{{
@@ -43,11 +44,15 @@ getCompileEnv key =
 getCompileEnvExp :: String -> Q Exp
 getCompileEnvExp = lift <=< getCompileEnv
 
+readTextFile file = do
+  contents <- T.readFile file
+  return $ Just (T.unpack . T.strip $ contents)
+
+guardIOAction = flip catch $ \e -> const (return Nothing) (e :: IOException)
+
 -- | Loads the content of a file as a string constant expression.
 -- The given path is relative to the source directory.
 getFileContents file = do
   addDependentFile file
-  runIO $ do
-    contents <- T.readFile file
-    return (T.unpack . T.strip $ contents)
+  runIO $ guardIOAction $ readTextFile file
 -- }}}
